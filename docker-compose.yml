@@ -1,0 +1,51 @@
+version: '3.7'
+services:
+  mariadb:
+    image: 'mariadb:10.4'
+    container_name: magento-mariadb
+    environment:
+      - ALLOW_EMPTY_PASSWORD
+      - MARIADB_USER
+      - MARIADB_PASSWORD
+      - MARIADB_DATABASE
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./db.cnf:/etc/mysql/conf.d/mysqlown.cnf
+    networks:
+      - internal
+    restart: unless-stopped
+  magento:
+    image: 'magento_dev_image'
+    container_name: magento
+    volumes:
+      - magento_data:/var/www/html/
+    networks:
+      - proxy
+      - internal
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${DOCKER_NETWORK_NAME}
+      - traefik.http.services.magento.loadbalancer.server.port=80
+      - traefik.http.services.magento.loadbalancer.server.scheme=http
+      - traefik.http.routers.magento.rule=Host(`www.exclusive-germany.com`) ||Host(`exclusive-germany.com`)
+      - traefik.http.routers.magento.entrypoints=http
+      - traefik.http.routers.magento.middlewares=redirect@file
+      - traefik.http.routers.magento-https.rule=Host(`www.exclusive-germany.com`)
+      - traefik.http.routers.magento-https.entrypoints=https
+      - traefik.http.routers.magento-https.tls=true
+      - traefik.http.routers.magento-https.tls.certResolver=default    
+volumes:
+  mariadb_data:
+    name: mariadb_data      
+    driver: local
+  magento_data:
+    name: magento_data
+    driver: local
+ 
+networks:
+  proxy:
+    external: 
+        name: ${DOCKER_NETWORK_NAME}
+  internal:
+    name: magento-internal        
